@@ -1,0 +1,33 @@
+#!/bin/busybox sh
+case "$1" in
+    deconfig)
+        /bin/busybox ip addr flush dev "$interface"
+        ;;
+    bound|renew)
+        case "${subnet:-255.255.255.0}" in
+            255.0.0.0) prefix=8 ;;
+            255.255.0.0) prefix=16 ;;
+            255.255.255.0) prefix=24 ;;
+            255.255.255.128) prefix=25 ;;
+            255.255.255.192) prefix=26 ;;
+            255.255.255.224) prefix=27 ;;
+            255.255.255.240) prefix=28 ;;
+            255.255.255.248) prefix=29 ;;
+            255.255.255.252) prefix=30 ;;
+            *) prefix=24 ;;
+        esac
+        /bin/busybox ip addr flush dev "$interface"
+        /bin/busybox ip addr add "$ip/$prefix" dev "$interface"
+        /bin/busybox ip link set "$interface" up
+        for gateway in $router; do
+            /bin/busybox ip route del default 2>/dev/null
+            /bin/busybox ip route add default via "$gateway" dev "$interface" 2>/dev/null
+            break
+        done
+        : > /etc/resolv.conf
+        for server in $dns; do
+            echo "nameserver $server" >> /etc/resolv.conf
+        done
+        ;;
+esac
+exit 0

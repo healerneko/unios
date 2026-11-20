@@ -1,0 +1,8 @@
+  <os>
+    <type arch='x86_64' machine='pc-i440fx-11.1'>hvm</type>
+    <loader readonly='yes' type='pflash'>/usr/share/edk2/x64/OVMF_CODE.4m.fd</loader>
+    <nvram template='/usr/share/edk2/x64/OVMF_VARS.4m.fd'>/home/healerneko/.local/share/gnome-boxes/images/boxes-unknown_b94703ee_VARS.fd</nvram>
+    <boot dev='cdrom'/>
+    <boot dev='hd'/>
+    <bootmenu enable='yes'/>
+  </os>

@@ -1,0 +1,11 @@
+kernel/fs/fat/fat.ko:
+kernel/fs/fat/vfat.ko: kernel/fs/fat/fat.ko
+kernel/drivers/ata/ata_piix.ko:
+kernel/drivers/net/ethernet/intel/e1000/e1000.ko:
+kernel/drivers/net/ethernet/realtek/8139too.ko: kernel/drivers/net/mii.ko
+kernel/drivers/net/mii.ko:
+kernel/drivers/net/usb/cdc_ether.ko: kernel/drivers/net/usb/usbnet.ko kernel/drivers/net/mii.ko
+kernel/drivers/net/usb/rndis_host.ko: kernel/drivers/net/usb/cdc_ether.ko kernel/drivers/net/usb/usbnet.ko kernel/drivers/net/mii.ko
+kernel/drivers/net/usb/usbnet.ko: kernel/drivers/net/mii.ko
+kernel/drivers/usb/storage/uas.ko: kernel/drivers/usb/storage/usb-storage.ko
+kernel/drivers/usb/storage/usb-storage.ko:

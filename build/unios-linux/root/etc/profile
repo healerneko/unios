@@ -1,0 +1,46 @@
+export PS1='\[\e[1;35m\]root@UniOS:\w# \[\e[0m\]'
+
+help() {
+    echo "UniOS Linux Live — comandos principais"
+    echo "  info          kernel, memoria e rede"
+    echo "  ip addr       interfaces e enderecos"
+    echo "  ping HOST     testa ICMP; exemplo: ping -c 4 1.1.1.1"
+    echo "  wget URL      baixa HTTP/HTTPS; exemplo: wget https://example.com"
+    echo "  lsblk         lista dispositivos de bloco"
+    echo "  lsusb         lista dispositivos USB"
+    echo "  dmesg         mensagens do kernel"
+    echo "  busybox --list mostra todos os applets disponiveis"
+    echo "  reboot        reinicia o computador"
+    echo "  exit          retorna ao boot"
+}
+
+info() {
+    echo "UniOS Linux Live"
+    uname -a
+    echo ""
+    free
+    echo ""
+    ip -brief address 2>/dev/null || ip addr
+    echo ""
+    ip route
+}
+
+lsblk() {
+    echo "Dispositivos de bloco:"
+    cat /proc/partitions
+}
+
+lsusb() {
+    echo "Dispositivos USB (vendor:product):"
+    for device in /sys/bus/usb/devices/*; do
+        [ -r "$device/idVendor" ] || continue
+        vendor=$(cat "$device/idVendor")
+        product=$(cat "$device/idProduct")
+        name=$(cat "$device/product" 2>/dev/null)
+        echo "$vendor:$product $name"
+    done
+}
+
+wget() {
+    /usr/bin/wget "$@"
+}

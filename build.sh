@@ -17,6 +17,19 @@ mkfs.fat -F 32 -n UNIOS build/data-part.img >/dev/null
 mmd -i build/data-part.img ::/UNIOS
 printf 'UniOS log volume\n' > build/UNIOS.TAG
 mcopy -i build/data-part.img build/UNIOS.TAG ::/UNIOS.TAG
+mcopy -i build/data-part.img Moon.txt ::/MOON.TXT
 dd if=build/esp-part.img of=build/unios.img bs=512 seek=2048 conv=notrunc status=none
 dd if=build/data-part.img of=build/unios.img bs=512 seek=133120 conv=notrunc status=none
-printf 'UniOS pronto. Grave diretamente esta imagem USB: %s/build/unios.img\n' "$PWD"
+
+# ISO UEFI para Boxes: FAT El Torito com o app e os arquivos do UniOS.
+rm -rf build/iso-root
+mkdir -p build/iso-root/UNIOS
+cp build/esp-part.img build/iso-efi.img
+mmd -i build/iso-efi.img ::/UNIOS
+mcopy -i build/iso-efi.img build/UNIOS.TAG ::/UNIOS.TAG
+mcopy -i build/iso-efi.img Moon.txt ::/MOON.TXT
+cp build/iso-efi.img build/iso-root/UEFI.IMG
+cp build/UNIOS.TAG build/iso-root/UNIOS.TAG
+cp Moon.txt build/iso-root/MOON.TXT
+xorriso -as mkisofs -R -J -V UNIOS -o build/unios.iso -e UEFI.IMG -no-emul-boot build/iso-root >/dev/null 2>&1
+printf 'UniOS USB: %s/build/unios.img\nUniOS UEFI ISO: %s/build/unios.iso\n' "$PWD" "$PWD"

@@ -1,0 +1,74 @@
+#!/bin/busybox sh
+export PATH=/usr/bin:/bin:/sbin
+export HOME=/root
+export TERM=linux
+
+mkdir -p /dev /proc /sys /run /tmp /root /mnt/UniOS /usr/share/udhcpc
+/bin/busybox mount -t devtmpfs devtmpfs /dev 2>/dev/null
+exec </dev/console >/dev/console 2>&1
+/bin/busybox mount -t proc proc /proc 2>/dev/null
+/bin/busybox mount -t sysfs sysfs /sys 2>/dev/null
+/bin/busybox mount -t tmpfs -o mode=1777 tmpfs /tmp 2>/dev/null
+
+echo /sbin/modprobe > /proc/sys/kernel/modprobe 2>/dev/null
+echo "[ OK ] Kernel Linux CachyOS iniciado"
+echo "[....] Carregando drivers de rede e armazenamento"
+for module in rndis_host e1000 8139too usb_storage vfat; do
+    /bin/busybox modprobe "$module" >/dev/null 2>&1 || true
+done
+/bin/busybox mdev -s 2>/dev/null
+/bin/busybox sleep 1
+
+mounted=0
+if /bin/busybox mount -t vfat -o rw /dev/sda1 /mnt/UniOS 2>/dev/null; then
+    echo "[ OK ] Volume do UniOS montado"
+    mounted=1
+else
+    for device in /dev/sdb1 /dev/vda1 /dev/vdb1; do
+        if /bin/busybox mount -t vfat -o rw "$device" /mnt/UniOS 2>/dev/null; then
+            echo "[ OK ] Volume do UniOS montado"
+            mounted=1
+            break
+        fi
+    done
+fi
+
+network_up=0
+for path in /sys/class/net/*; do
+    iface=${path##*/}
+    [ "$iface" = lo ] && continue
+    /bin/busybox ip link set "$iface" up 2>/dev/null || continue
+    echo "[....] DHCP em $iface"
+    if /bin/busybox udhcpc -i "$iface" -n -q -t 5 -T 2 -s /usr/share/udhcpc/default.script >/dev/null 2>&1; then
+        echo "[ OK ] Rede configurada em $iface"
+        network_up=1
+        break
+    fi
+done
+
+{
+    echo "UniOS Linux Live"
+    echo "Kernel: $(/bin/busybox uname -r)"
+    echo ""
+    /bin/busybox dmesg
+} > /tmp/UniOS.log 2>&1
+if [ "$mounted" = 1 ]; then
+    /bin/busybox cp /tmp/UniOS.log /mnt/UniOS/UNIOS.LOG 2>/dev/null
+fi
+
+if [ "$network_up" = 1 ]; then
+    echo "[ OK ] Ancoragem/rede pronta; teste ping e wget"
+else
+    echo "[FAIL] Rede sem DHCP; confira o cabo/ancoragem USB"
+fi
+echo ""
+echo "Bem-vindo ao UniOS Linux Live"
+echo "Digite help para ver os comandos. Use exit para voltar ao menu de boot."
+echo ""
+
+while :; do
+    /bin/busybox ash -l -i
+    echo "O shell foi fechado. Reiniciando o UniOS..."
+    /bin/busybox reboot -f
+    /bin/busybox sleep 2
+done
