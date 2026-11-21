@@ -77,7 +77,11 @@ done
 for module in xhci_pci xhci_hcd ehci_pci ehci_hcd uhci_hcd ahci sd_mod scsi_mod rndis_host e1000 8139too usb_storage uas vfat ata_piix; do
   while read -r action path; do
     [[ "$action" == insmod && -r "$path" ]] || continue
-    rel="${path#/lib/modules/$KVER/}"
+    case "$path" in
+      /usr/lib/modules/"$KVER"/*) rel="${path#/usr/lib/modules/$KVER/}" ;;
+      /lib/modules/"$KVER"/*) rel="${path#/lib/modules/$KVER/}" ;;
+      *) continue ;;
+    esac
     rel="${rel%.zst}"
     [[ -n "${copied_modules[$rel]:-}" ]] && continue
     copied_modules[$rel]=1
