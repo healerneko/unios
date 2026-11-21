@@ -12,26 +12,39 @@ exec </dev/console >/dev/console 2>&1
 
 echo /sbin/modprobe > /proc/sys/kernel/modprobe 2>/dev/null
 echo "[ OK ] Kernel Linux CachyOS iniciado"
-echo "[....] Carregando drivers de rede e armazenamento"
-for module in rndis_host e1000 8139too usb_storage vfat; do
+echo "[....] Carregando drivers de armazenamento e rede"
+for module in scsi_mod sd_mod usbcore xhci_hcd ehci_hcd uhci_hcd usb_storage uas ahci ata_piix rndis_host e1000 8139too vfat; do
     /bin/busybox modprobe "$module" >/dev/null 2>&1 || true
 done
 /bin/busybox mdev -s 2>/dev/null
-/bin/busybox sleep 1
 
+# Give USB/SCSI devices time to enumerate. Never probe or write to fixed
+# /dev/sda1: it may be the host's internal EFI partition.
 mounted=0
-if /bin/busybox mount -t vfat -o rw /dev/sda1 /mnt/UniOS 2>/dev/null; then
-    echo "[ OK ] Volume do UniOS montado"
-    mounted=1
-else
-    for device in /dev/sdb1 /dev/vda1 /dev/vdb1; do
-        if /bin/busybox mount -t vfat -o rw "$device" /mnt/UniOS 2>/dev/null; then
-            echo "[ OK ] Volume do UniOS montado"
-            mounted=1
-            break
-        fi
+attempt=0
+while [ "$attempt" -lt 10 ] && [ "$mounted" -eq 0 ]; do
+    for disk in /sys/block/*; do
+        [ -r "$disk/removable" ] || continue
+        [ "$(cat "$disk/removable" 2>/dev/null)" = "1" ] || continue
+        disk_name=${disk##*/}
+        for partition in /sys/block/"$disk_name"/"$disk_name"*; do
+            [ -e "$partition/partition" ] || continue
+            part_name=${partition##*/}
+            device="/dev/$part_name"
+            [ -b "$device" ] || continue
+            if /bin/busybox mount -t vfat -o rw "$device" /mnt/UniOS 2>/dev/null; then
+                echo "[ OK ] Midia USB removivel montada: $device"
+                mounted=1
+                break
+            fi
+        done
+        [ "$mounted" -eq 1 ] && break
     done
-fi
+    [ "$mounted" -eq 1 ] && break
+    /bin/busybox sleep 1
+    attempt=$((attempt + 1))
+    /bin/busybox mdev -s 2>/dev/null
+done
 
 network_up=0
 for path in /sys/class/net/*; do
@@ -49,17 +62,26 @@ done
 {
     echo "UniOS Linux Live"
     echo "Kernel: $(/bin/busybox uname -r)"
+    echo "Dispositivos de bloco:"
+    for disk in /sys/block/*; do
+        [ -e "$disk" ] || continue
+        echo "${disk##*/}: removivel=$(cat "$disk/removable" 2>/dev/null)"
+    done
     echo ""
     /bin/busybox dmesg
 } > /tmp/UniOS.log 2>&1
-if [ "$mounted" = 1 ]; then
+if [ "$mounted" -eq 1 ]; then
     /bin/busybox cp /tmp/UniOS.log /mnt/UniOS/UNIOS.LOG 2>/dev/null
 fi
 
-if [ "$network_up" = 1 ]; then
-    echo "[ OK ] Ancoragem/rede pronta; teste ping e wget"
+if [ "$network_up" -eq 1 ]; then
+    echo "[ OK ] Rede pronta; teste ping e wget"
 else
-    echo "[FAIL] Rede sem DHCP; confira o cabo/ancoragem USB"
+    echo "[FAIL] Rede sem DHCP; confira cabo/ancoragem USB"
+fi
+if [ "$mounted" -eq 0 ]; then
+    echo "[AVISO] Nenhuma particao FAT32 removivel foi encontrada."
+    echo "[INFO] O log de diagnostico esta em /tmp/UniOS.log"
 fi
 echo ""
 echo "Bem-vindo ao UniOS Linux Live"
