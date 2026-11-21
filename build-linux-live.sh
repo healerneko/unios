@@ -12,6 +12,7 @@ if [[ ! -r "$KERNEL" ]]; then
   KERNEL=/boot/vmlinuz-linux-cachyos
 fi
 [[ -r "$KERNEL" ]] || { echo "Kernel CachyOS $KVER nao encontrado." >&2; exit 1; }
+[[ -d "/usr/lib/modules/$KVER" ]] || { echo "Modulos do kernel $KVER nao encontrados." >&2; exit 1; }
 
 BUILD="$PWD/build/unios-linux"
 ROOT="$BUILD/root"
@@ -64,13 +65,16 @@ cp linux-live/init "$ROOT/init"
 cp linux-live/udhcpc.script "$ROOT/usr/share/udhcpc/default.script"
 cp linux-live/profile "$ROOT/etc/profile"
 chmod 755 "$ROOT/init" "$ROOT/usr/share/udhcpc/default.script"
+"$ROOT/bin/busybox" ash -n "$ROOT/init"
 
-# Drivers from this exact CachyOS kernel: phone USB tether, QEMU NICs, USB disk and FAT.
+# Include host-controller drivers as well as USB storage and SATA drivers.
+# USB storage alone does not guarantee that the machine's xHCI/EHCI controller
+# is present in this initramfs.
 declare -A copied_modules=()
 for metadata in modules.order modules.builtin modules.builtin.modinfo modules.builtin.ranges; do
   [[ ! -r "/usr/lib/modules/$KVER/$metadata" ]] || cp "/usr/lib/modules/$KVER/$metadata" "$ROOT/lib/modules/$KVER/"
 done
-for module in rndis_host e1000 8139too usb_storage uas vfat ata_piix; do
+for module in xhci_pci xhci_hcd ehci_pci ehci_hcd uhci_hcd ahci sd_mod scsi_mod rndis_host e1000 8139too usb_storage uas vfat ata_piix; do
   while read -r action path; do
     [[ "$action" == insmod && -r "$path" ]] || continue
     rel="${path#/lib/modules/$KVER/}"
@@ -94,8 +98,11 @@ cp "$BUILD/vmlinuz-cachyos" "$BUILD/iso-root/boot/$KERNEL_NAME"
   cd "$ROOT"
   find . -print0 | sort -z | cpio --null -o -H newc --owner=0:0 2>/dev/null | gzip -1 > "$BUILD/iso-root/boot/unios-initramfs.cpio.gz"
 )
+gzip -t "$BUILD/iso-root/boot/unios-initramfs.cpio.gz"
+cpio -it < <(gzip -dc "$BUILD/iso-root/boot/unios-initramfs.cpio.gz") | grep -qx './init'
 cp linux-live/grub.cfg "$BUILD/iso-root/boot/grub/grub.cfg"
 sed -i "s/@KERNEL@/$KERNEL_NAME/g" "$BUILD/iso-root/boot/grub/grub.cfg"
+grep -q "initrd /boot/unios-initramfs.cpio.gz" "$BUILD/iso-root/boot/grub/grub.cfg"
 grub-mkrescue -o "$PWD/build/unios-linux.iso" "$BUILD/iso-root" >/dev/null 2>&1
 
 # Standalone UEFI loader and a GPT/FAT32 USB image, built entirely in the project.
