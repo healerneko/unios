@@ -106,6 +106,8 @@ grep -q "initrd /boot/unios-initramfs.cpio.gz" "$BUILD/iso-root/boot/grub/grub.c
 grub-mkrescue -o "$PWD/build/unios-linux.iso" "$BUILD/iso-root" >/dev/null 2>&1
 
 # Standalone UEFI loader and a GPT/FAT32 USB image, built entirely in the project.
+# Remove previous staging first so an older kernel/initramfs cannot be carried over.
+rm -rf "$BUILD/usb" "$BUILD/esp-part.img"
 mkdir -p "$BUILD/usb/EFI/BOOT" "$BUILD/usb/boot/grub"
 cp "$BUILD/iso-root/boot/$KERNEL_NAME" "$BUILD/usb/boot/"
 cp "$BUILD/iso-root/boot/unios-initramfs.cpio.gz" "$BUILD/usb/boot/"
