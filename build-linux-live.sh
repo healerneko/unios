@@ -103,7 +103,7 @@ cp "$BUILD/vmlinuz-cachyos" "$BUILD/iso-root/boot/$KERNEL_NAME"
   find . -print0 | sort -z | cpio --null -o -H newc --owner=0:0 2>/dev/null | gzip -1 > "$BUILD/iso-root/boot/unios-initramfs.cpio.gz"
 )
 gzip -t "$BUILD/iso-root/boot/unios-initramfs.cpio.gz"
-cpio -it < <(gzip -dc "$BUILD/iso-root/boot/unios-initramfs.cpio.gz") | grep -Eq '(^|/)init$'
+cpio -it < <(gzip -dc "$BUILD/iso-root/boot/unios-initramfs.cpio.gz") | grep -E '(^|/)init$' >/dev/null
 cp linux-live/grub.cfg "$BUILD/iso-root/boot/grub/grub.cfg"
 sed -i "s/@KERNEL@/$KERNEL_NAME/g" "$BUILD/iso-root/boot/grub/grub.cfg"
 grep -q "initrd /boot/unios-initramfs.cpio.gz" "$BUILD/iso-root/boot/grub/grub.cfg"
