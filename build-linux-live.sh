@@ -103,7 +103,31 @@ cp "$BUILD/vmlinuz-cachyos" "$BUILD/iso-root/boot/$KERNEL_NAME"
   find . -print0 | sort -z | cpio --null -o -H newc --owner=0:0 2>/dev/null | gzip -1 > "$BUILD/iso-root/boot/unios-initramfs.cpio.gz"
 )
 gzip -t "$BUILD/iso-root/boot/unios-initramfs.cpio.gz"
-cpio -it < <(gzip -dc "$BUILD/iso-root/boot/unios-initramfs.cpio.gz") | grep -qx './init'
+cpio -it < <(gzip -dc "$BUILD/iso-root/boot/unios-initramfs.cpio.gz") | grep -Eq '^(\./)?init
+cp linux-live/grub.cfg "$BUILD/iso-root/boot/grub/grub.cfg"
+sed -i "s/@KERNEL@/$KERNEL_NAME/g" "$BUILD/iso-root/boot/grub/grub.cfg"
+grep -q "initrd /boot/unios-initramfs.cpio.gz" "$BUILD/iso-root/boot/grub/grub.cfg"
+grub-mkrescue -o "$PWD/build/unios-linux.iso" "$BUILD/iso-root" >/dev/null 2>&1
+
+# Standalone UEFI loader and a GPT/FAT32 USB image, built entirely in the project.
+# Remove previous staging first so an older kernel/initramfs cannot be carried over.
+rm -rf "$BUILD/usb" "$BUILD/esp-part.img"
+mkdir -p "$BUILD/usb/EFI/BOOT" "$BUILD/usb/boot/grub"
+cp "$BUILD/iso-root/boot/$KERNEL_NAME" "$BUILD/usb/boot/"
+cp "$BUILD/iso-root/boot/unios-initramfs.cpio.gz" "$BUILD/usb/boot/"
+cp "$BUILD/iso-root/boot/grub/grub.cfg" "$BUILD/usb/boot/grub/"
+grub-mkstandalone -O x86_64-efi -o "$BUILD/usb/EFI/BOOT/BOOTX64.EFI" --modules="part_gpt fat search search_fs_file linux normal configfile all_video gfxterm terminal serial" "boot/grub/grub.cfg=$BUILD/usb/boot/grub/grub.cfg" >/dev/null 2>&1
+
+truncate -s 256M "$PWD/build/unios-linux.img"
+parted -s "$PWD/build/unios-linux.img" mklabel gpt mkpart primary fat32 1MiB 255MiB set 1 esp on
+truncate -s 254M "$BUILD/esp-part.img"
+mkfs.fat -F 32 -n UNIOS "$BUILD/esp-part.img" >/dev/null
+mcopy -i "$BUILD/esp-part.img" -s "$BUILD/usb/EFI" ::/
+mcopy -i "$BUILD/esp-part.img" -s "$BUILD/usb/boot" ::/
+dd if="$BUILD/esp-part.img" of="$PWD/build/unios-linux.img" bs=512 seek=2048 conv=notrunc status=none
+
+printf 'UniOS Linux ISO: %s/build/unios-linux.iso\nUniOS Linux USB IMG: %s/build/unios-linux.img\nKernel: %s\n' "$PWD" "$PWD" "$KVER"
+
 cp linux-live/grub.cfg "$BUILD/iso-root/boot/grub/grub.cfg"
 sed -i "s/@KERNEL@/$KERNEL_NAME/g" "$BUILD/iso-root/boot/grub/grub.cfg"
 grep -q "initrd /boot/unios-initramfs.cpio.gz" "$BUILD/iso-root/boot/grub/grub.cfg"
