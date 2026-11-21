@@ -13,7 +13,7 @@ exec </dev/console >/dev/console 2>&1
 echo /sbin/modprobe > /proc/sys/kernel/modprobe 2>/dev/null
 echo "[ OK ] Kernel Linux CachyOS iniciado"
 echo "[....] Carregando drivers de armazenamento e rede"
-for module in scsi_mod sd_mod usbcore xhci_hcd ehci_hcd uhci_hcd usb_storage uas ahci ata_piix rndis_host e1000 8139too vfat; do
+for module in scsi_mod sd_mod usbcore xhci_pci xhci_hcd ehci_pci ehci_hcd uhci_hcd usb_storage uas ahci ata_piix rndis_host e1000 8139too vfat; do
     /bin/busybox modprobe "$module" >/dev/null 2>&1 || true
 done
 /bin/busybox mdev -s 2>/dev/null
